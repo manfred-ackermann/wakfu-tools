@@ -12,6 +12,7 @@
 DEBUG=false
 # logfile to read
 LOGFILE=~/.config/zaap/wakfu/logs/wakfu.log
+[[ "$OSTYPE" == "darwin"* ]] && LOGFILE=~/Library/Logs/zaap/wakfu/logs/wakfu.log
 # color definitions for output highlighting
 COLOR_GREEN=$(tput setaf 2)
 COLOR_RED=$(tput setaf 1)
@@ -46,7 +47,7 @@ shift $((OPTIND -1))
 
 # Get list of resources from Wakfu API!?
 
-tail -n 200 -f ${LOGFILE} | while read line
+tail -f ${LOGFILE} | while read line
 do
   # Only handle INFO lines
   if [[ ${line} =~ ^INFO[[:blank:]].*$   ]]
