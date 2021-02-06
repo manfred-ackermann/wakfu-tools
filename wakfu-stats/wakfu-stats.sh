@@ -13,8 +13,9 @@ DEBUG=false
 # logfile to read
 LOGFILE=~/.config/zaap/wakfu/logs/wakfu.log
 [[ "$OSTYPE" == "darwin"* ]] && LOGFILE=~/Library/Logs/zaap/wakfu/logs/wakfu.log
+
 # color definitions for output highlighting
-if [ -z $TERM ]
+if [[ $TERM =~ ^.*color$ ]]
 then
   COLOR_GREEN=$(tput setaf 2)
   COLOR_RED=$(tput setaf 1)
@@ -34,12 +35,11 @@ stats() {
     fi
   done
 }
-
 echo_green()   { echo -e "${COLOR_GREEN}${1}${NO_COLOR}${2}"; }
 echo_red()     { echo -e "${COLOR_RED}${1}${NO_COLOR}${2}"; }
 echo_magenta() { echo -e "${COLOR_MAGENTA}${1}${NO_COLOR}${2}"; }
-debug() { [[ ${DEBUG} = true ]] && echo -e "DEBUG: ${1}"; }
-exit_hook() {  echo_red "\rSKRIPT ENDED..." >&2; }; trap exit_hook INT TERM
+debug()        { [[ ${DEBUG} = true ]] && echo -e "DEBUG: ${1}"; }
+exit_hook()    {  echo_red "\rSKRIPT ENDED..." >&2; }; trap exit_hook INT TERM
 
 ###########################################
 # MAIN LOOP
@@ -89,11 +89,18 @@ debug "file=${LOGFILE}"
 # Get list of resources from Wakfu API!?
 GAMEDB_DIR=~/.wakfu-stats
 mkdir -p ${GAMEDB_DIR}
-debug "$(ls -l ${GAMEDB_DIR}/jobsItems)"
+debug "$(ls -l ${GAMEDB_DIR})"
 GAMEDB_VERSION=$(curl --silent --fail "https://wakfu.cdn.ankama.com/gamedata/config.json"|jq -r .version)
 curl --silent --fail --output ${GAMEDB_DIR}/jobsItems --time-cond ${GAMEDB_DIR}/jobsItems \
       https://wakfu.cdn.ankama.com/gamedata/${GAMEDB_VERSION}/jobsItems.json
-debug "$(ls -l ${GAMEDB_DIR}/jobsItems)"
+#curl --silent --fail --output ${GAMEDB_DIR}/resources --time-cond ${GAMEDB_DIR}/resources \
+#      https://wakfu.cdn.ankama.com/gamedata/${GAMEDB_VERSION}/resources.json
+#curl --silent --fail --output ${GAMEDB_DIR}/resourceTypes --time-cond ${GAMEDB_DIR}/resourceTypes \
+#      https://wakfu.cdn.ankama.com/gamedata/${GAMEDB_VERSION}/resourceTypes.json
+debug "$(ls -l ${GAMEDB_DIR})"
+
+#GAMEDB_RESOURCE_IDS="$(echo $(jq '.[] | .definition.id' ${GAMEDB_DIR}/resourceTypes))"
+#debug "resourceTypes=${GAMEDB_RESOURCE_IDS}"
 
 tail -n 0 -F ${LOGFILE} | while read line
 do
@@ -113,13 +120,16 @@ do
     then
       debug "type='${TYPE}', text='${TEXT}'"
 
+      #################################################################################################################
       # You sold 1 item for a total price of 374§ during your absence.
       [[ ${TEXT} =~ ^You[[:blank:]]sold.*$ ]] && echo_green "${TEXT}" \
                                               #; notify-send "[SOLD]" "$line"
 
+      #################################################################################################################
       # Miner: +87 XP points. Next level in: 9,104.              => repeats till next level, time? till next level
       # Miner: +103 XP points. +1 level. Next level in: wakfu-stats.sh -d -g19,411.
 
+      #################################################################################################################
       # You have picked up 4x Mercury.                           => calc avg session day for resource
       # You have picked up 4x Chrome-Plated Mercury.
       declare HARVEST_AMOUNT
@@ -131,21 +141,25 @@ do
         ITEM_COUNT=$( echo ${TEXT} | sed -n 's/^.*up[[:blank:]]\(.*\)x[[:blank:]].*$/\1/p')
         
         # Find item id for usage as hash key
-        ITEM_ID=$( jq ".[] | select(.title.en==\"${ITEM_NAME}\") | .definition.id" ${GAMEDB_DIR}/jobsItems )
-
-        if [[ ! -z "$ITEM_ID" ]]
+        ITEM_ID=$( jq ".[] | select(.title.en==\"${ITEM_NAME}\") | .definition.id"           ${GAMEDB_DIR}/jobsItems )
+        #ITEM_RT=$( jq ".[] | select(.title.en==\"${ITEM_NAME}\") | .definition.resourceType" ${GAMEDB_DIR}/resources )
+        
+        #if [[ ! -z "${ITEM_ID}" ]] && [[ ${ITEM_RT} = 7 ]] # RT 7 = Ore
+        if [[ ! -z "${ITEM_ID}" ]]
         then
-          HARVEST_COUNT[${ITEM_ID} ]=$(( ${HARVEST_COUNT[  ${ITEM_ID} ] } + 1 ))
-          HARVEST_AMOUNT[${ITEM_ID} ]=$(( ${HARVEST_AMOUNT[ ${ITEM_ID} ] } + ${ITEM_COUNT} ))
-          HARVEST_NAME[${ITEM_ID} ]="${ITEM_NAME}"
+          HARVEST_COUNT[${ITEM_ID}]=$(( ${HARVEST_COUNT[${ITEM_ID}]} + 1 ))
+          HARVEST_AMOUNT[${ITEM_ID}]=$(( ${HARVEST_AMOUNT[${ITEM_ID}]} + ${ITEM_COUNT} ))
+          HARVEST_NAME[${ITEM_ID}]="${ITEM_NAME}"
 
           echo_green "HARVEST: " "${ITEM_COUNT}x ${ITEM_NAME} (avg: $(( ${HARVEST_AMOUNT[${ITEM_ID}]} / ${HARVEST_COUNT[${ITEM_ID}]} )), harvests: ${HARVEST_COUNT[${ITEM_ID}]}, sum: ${HARVEST_AMOUNT[${ITEM_ID}]})"
         fi
       fi
 
+      #################################################################################################################
       # You've earned 100 kamas.
       [[ ${TEXT} =~ ^You\'ve[[:blank:]]earned[[:blank:]].*$ ]] && echo_green "${TEXT}"
 
+      #################################################################################################################
       # Xxxxxx (xxxxxx#1025) has just left our world.            => Proximity alert
       # Xxxxxx (xxxxxx#1025) has joined our world.
     fi
