@@ -14,10 +14,13 @@ DEBUG=false
 LOGFILE=~/.config/zaap/wakfu/logs/wakfu.log
 [[ "$OSTYPE" == "darwin"* ]] && LOGFILE=~/Library/Logs/zaap/wakfu/logs/wakfu.log
 # color definitions for output highlighting
-COLOR_GREEN=$(tput setaf 2)
-COLOR_RED=$(tput setaf 1)
-COLOR_MAGENTA=$(tput setaf 5)
-NO_COLOR=$(tput sgr0)
+if [ -z $TERM ]
+then
+  COLOR_GREEN=$(tput setaf 2)
+  COLOR_RED=$(tput setaf 1)
+  COLOR_MAGENTA=$(tput setaf 5)
+  NO_COLOR=$(tput sgr0)
+fi
 
 ###########################################
 # Functions
@@ -31,6 +34,7 @@ stats() {
     fi
   done
 }
+
 echo_green()   { echo -e "${COLOR_GREEN}${1}${NO_COLOR}${2}"; }
 echo_red()     { echo -e "${COLOR_RED}${1}${NO_COLOR}${2}"; }
 echo_magenta() { echo -e "${COLOR_MAGENTA}${1}${NO_COLOR}${2}"; }

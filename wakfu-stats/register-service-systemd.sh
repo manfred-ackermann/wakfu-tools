@@ -1,28 +1,30 @@
 #!/bin/bash
 
-if [[ $(whoami) != root ]]
+me=$USER
+
+if [[ $(whoami) = root ]]
 then
-  echo "You have to execute as root or with sudo."
+  echo "Not to execute as root! Execute as user."
   exit 1
 fi
 
 if [[ "$OSTYPE" != "linux"* ]]
 then
-  echo "You have to execute on a linux system."
+  echo "You have to execute on a linux os."
   exit 1
 fi
 
-cat > /etc/systemd/system/wakfu-stats.service <<EOSD
+sudo tee /etc/systemd/system/wakfu-stats.service <<EOSD
 [Unit]
 Description=Wakfu Stats
 
 [Service]
-User=$USER
+User=$me
 ExecStart=$(realpath $(dirname $0)/wakfu-stats.sh)
 
 [Install]
 WantedBy=multi-user.target
 EOSD
 
-systemctl enable wakfu-stats.service
-systemctl start  wakfu-stats.service
+sudo systemctl enable wakfu-stats.service
+sudo systemctl start  wakfu-stats.service
