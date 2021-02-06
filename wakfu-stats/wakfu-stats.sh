@@ -16,9 +16,22 @@ LOGFILE=~/.config/zaap/wakfu/logs/wakfu.log
 # color definitions for output highlighting
 COLOR_GREEN=$(tput setaf 2)
 COLOR_RED=$(tput setaf 1)
+COLOR_MAGENTA=$(tput setaf 5)
 NO_COLOR=$(tput sgr0)
-###########################################
 
+###########################################
+# Functions
+###########################################
+echo_green()   { echo -e "${COLOR_GREEN}${1}${NO_COLOR}${2}"; }
+echo_red()     { echo -e "${COLOR_RED}${1}${NO_COLOR}${2}"; }
+echo_magenta() { echo -e "${COLOR_MAGENTA}${1}${NO_COLOR}${2}"; }
+exit_hook() { debug "\rSKRIPT ENDED..." >&2; }; trap exit_hook INT TERM
+debug() { [[ ${DEBUG} = true ]] && echo -e "DEBUG: ${1}"; }
+
+###########################################
+# MAIN LOOP
+###########################################
+debug "SKRIPT START..."
 while getopts "hdf:" opt; do
   case ${opt} in
     h )
@@ -33,7 +46,11 @@ while getopts "hdf:" opt; do
       ;;
     f ) 
       LOGFILE=$OPTARG
-      [[ -f ${LOGFILE} ]] || (echo "${COLOR_RED}FATAL${NO_COLOR}: Can't open ${LOGFILE} for reading!"; exit 1)
+      if [[ ! -f ${LOGFILE} ]]
+      then
+        echo_red "FATAL: " "Can't open ${LOGFILE} for reading!"
+        exit 1
+      fi
       ;;
     \? )
       echo "Invalid Option: -$OPTARG" 1>&2
@@ -43,11 +60,11 @@ while getopts "hdf:" opt; do
 done
 shift $((OPTIND -1))
 
-[[ ${DEBUG} = true ]] && echo "DEBUG: file=${LOGFILE}"
+debug "file=${LOGFILE}"
 
 # Get list of resources from Wakfu API!?
 
-tail -f ${LOGFILE} | while read line
+tail -F ${LOGFILE} | while read line
 do
   # Only handle INFO lines
   if [[ ${line} =~ ^INFO[[:blank:]].*$   ]]
@@ -58,15 +75,15 @@ do
     TEXT=$(echo ${line}|sed -n 's/^.*\][[:blank:]]\(.*\)$/\1/p')
 
     # Output guild messages
-    [[ ${TYPE} = Guild ]] && echo "${COLOR_RED}[GUILD ]${NO_COLOR} ${TEXT}"
+    [[ ${TYPE} = Guild ]] && echo_magenta "${TEXT}"
 
     # Handle Game Log messages
     if [[ ${TYPE} = Game[[:blank:]]Log   ]]
     then
-      [[ ${DEBUG} = true ]] && echo "DEBUG: type='${TYPE}', text='${TEXT}'"
+      debug "type='${TYPE}', text='${TEXT}'"
 
       # You sold 1 item for a total price of 374§ during your absence.
-      [[ ${TEXT} =~ ^You[[:blank:]]sold.*$ ]] && echo "${COLOR_GREEN}[MARKET]${NO_COLOR} ${TEXT}" \
+      [[ ${TEXT} =~ ^You[[:blank:]]sold.*$ ]] && echo_green "${TEXT}" \
                                               #; notify-send "[SOLD]" "$line"
 
       # Miner: +87 XP points. Next level in: 9,104.              => repeats till next level, time? till next level
@@ -74,6 +91,9 @@ do
 
       # You have picked up 4x Mercury.                           => calc avg session day for resource
       # You have picked up 4x Chrome-Plated Mercury.
+
+      # You've earned 100 kamas.
+      [[ ${TEXT} =~ ^You\'ve[[:blank:]]earned[[:blank:]].*$ ]] && echo_green "${TEXT}"
 
       # Xxxxxx (xxxxxx#1025) has just left our world.            => Proximity alert
       # Xxxxxx (xxxxxx#1025) has joined our world.
